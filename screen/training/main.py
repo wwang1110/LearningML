@@ -29,33 +29,6 @@ if __name__ == "__main__":
     #dataset_path = 'D:/Adams/dataset/CUB_200_2011_CAP'
     dataset_path = 'D:/Adams/dataset/CUBTest'
 
-    '''
-    im = Image.open('D:/Adams/dataset/CUBTest/Acadian_Flycatcher_0012_795612.jpg')
-
-    mytr1 = get_transforms(224)
-    r1 = mytr1(image = np.array(im))
-    mytransforms = transforms.Compose(
-        [
-            #transforms.ToPILImage(),
-            transforms.Resize((224, 224)),
-            _convert_to_rgb,
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.5, 0.5, 0.5])
-        ]
-    )
-    r2 = mytransforms(im)
-
-    images = []
-    for file in os.listdir(dataset_path):
-        if file.endswith(".png") or file.endswith(".jpg"):
-            with Image.open(os.path.join(dataset_path, file), 'r') as img:
-                images.append(img)
-
-    #r3 = mytr1(image = np.array(images[10]))
-    #r4 = mytransforms(images[10])
-    
-    '''
-    
     dataset = ScreenDataset(dataset_path, get_transforms(224), text_tokenizer)
 
 
