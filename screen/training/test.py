@@ -1,16 +1,13 @@
 #from screen import TextEncoder, ImageEncoder, MetadataEncoder
-from data import ScreenDataset
-import open_clip
-from transformers import Trainer, TrainingArguments
-from mlp import MLP
-import albumentations as A
-from torchvision import transforms
-from PIL import Image
-import numpy as np
 import os
-from transformers import CLIPProcessor, CLIPModel
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-CLIPModel.from_pretrained("openai/clip-vit-base-patch16", )
+from transformers import Trainer, TrainingArguments
+from mlp.mlp import MLP
+from mlp.mlp_dataset import MLPDataset
+import albumentations as A
+
+
 def get_transforms(img_size):
     return A.Compose(
         [
@@ -18,25 +15,22 @@ def get_transforms(img_size):
             A.Normalize(max_pixel_value=255.0, always_apply=True),
         ]
     )
-def _convert_to_rgb(image):
-    return image.convert('RGB')
 
 if __name__ == "__main__":
 
-    model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
-    text_tokenizer = open_clip.get_tokenizer('ViT-B-32')
-
     #dataset_path = 'D:/Adams/dataset/CUB_200_2011_CAP'
-    dataset_path = 'D:/Adams/dataset/CUBTest'
+    dataset_train_path = 'D:/Adams/dataset/CUBTest_train'
+    dataset_val_path = 'D:/Adams/dataset/CUBTest_val'
 
-    dataset = ScreenDataset(dataset_path, get_transforms(224), text_tokenizer)
+    train_dataset = MLPDataset(dataset_train_path, get_transforms(16))
+    val_dataset = MLPDataset(dataset_val_path, get_transforms(16))
 
 
     # device = torch.device('hpu')
     device = 'cpu'
     n_classes = 3
-    bs = 10
-    n_features = 20
+    bs = 8
+    n_features = 256
 
     training_args = TrainingArguments(
             output_dir='./checkpoint',
@@ -49,9 +43,6 @@ if __name__ == "__main__":
         )
 
     model = MLP(n_features, n_classes)
-
-    val_dataset = dataset
-    train_dataset = dataset
 
     trainer = Trainer(
             model=model,

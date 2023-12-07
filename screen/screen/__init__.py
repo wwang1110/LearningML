@@ -5,18 +5,67 @@ import torch.nn.functional as F
 from .image_encoder import ImageEncoder
 from .text_encoder import TextEncoder
 from .metadata_encoder import MetadataEncoder
-from .projection_header import ProjectionHead
+from .mlp_header import MLPHeader
+from transformers import CLIPProcessor, CLIPModel
+from transformers import RobertaModel, RobertaTokenizer
+from typing import Optional
+from transformers import PreTrainedModel, PreTrainedTokenizer
 
-class CLIPModel(nn.Module):
+clip_models = [
+    #projection_dim = 512
+    "openai/clip-vit-base-patch32", 
+    #projection_dim = 768
+    "openai/clip-vit-large-patch14"
+    ]
+xlm_roberta_models = [
+    "xlm-roberta-base", 
+    "xlm-roberta-large"
+    ]
+
+class ScreenModel(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.image_encoder = ImageEncoder()
         self.text_encoder = TextEncoder()
         self.metadata_encoder = MetadataEncoder()
-        self.image_projection = ProjectionHead(embedding_dim=config.image_embedding)
-        self.text_projection = ProjectionHead(embedding_dim=config.text_embedding)
-        self.metadata_encoder = ProjectionHead(embedding_dim=config.metadata_embedding)
         self.temperature = config.temperature
+
+        self.clip_model = CLIPModel.from_pretrained(config.clip_model_name)
+        for p in self.clip_model.parameters():
+            p.requires_grad = config.trainable
+        self.metadata_encoder = RobertaModel.from_pretrained(config.metadata_model_name)
+        for p in self.metadata_encoder.parameters():
+            p.requires_grad = config.trainable
+
+        self.projection_dim = config.projection_dim
+        self.clip_dim = config.clip_dim
+        self.roberta_dim = config.roberta_dim
+        self.metadata_projection = nn.Linear(self.roberta_dim, self.projection_dim, bias=False)
+        self.clip_text_projection = nn.Linear(self.clip_dim, self.projection_dim, bias=False)
+        self.clip_vision_projection = nn.Linear(self.clip_dim, self.projection_dim, bias=False)
+        self.mlp = MLPHeader(embedding_dim=config.clip_dim, projection_dim=config.projection_dim, dropout=config.dropout)
+
+    def get_text_features(self, input_ids, attention_mask: Optional[torch.Tensor] = None):
+        text_feature = self.clip_model.get_text_features(input_ids=input_ids, attention_mask=attention_mask)
+        return self.clip_text_projection(text_feature)
+
+    def get_image_features(self, pixel_values, encoded_metadata, metadata_attention_mask):
+        #extract image embeds
+        image_feature = self.clip_model.get_image_features(pixel_values=pixel_values)
+        image_feature = self.clip_vision_projection(image_feature)
+        image_embeds = image_feature / image_feature.norm(p=2, dim=-1, keepdim=True)
+
+        #extract metadata embeds
+        metadata_output = self.metadata_encoder(input_ids=encoded_metadata, attention_mask=metadata_attention_mask)
+        metadata_feature = metadata_output[1]
+        metadata_feature = self.metadata_projection(metadata_feature)
+        metadata_embeds = metadata_feature / metadata_feature.norm(p=2, dim=-1, keepdim=True)
+        
+        #concat image and metadata embeds
+        embeds = torch.cat((image_embeds, metadata_embeds), dim=1)
+
+        #mlp layer
+        return self.mlp(embeds)
 
     def forward(self, batch):
         # Getting Image and Text Features

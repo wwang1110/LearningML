@@ -1,16 +1,18 @@
 from torch import nn
 
-class ProjectionHead(nn.Module):
+class MLPHeader(nn.Module):
     def __init__(
         self,
         embedding_dim,
-        projection_dim=CFG.projection_dim,
-        dropout=CFG.dropout
+        projection_dim,
+        dropout
     ):
         super().__init__()
         self.projection = nn.Linear(embedding_dim, projection_dim)
-        self.gelu = nn.GELU()
-        self.fc = nn.Linear(projection_dim, projection_dim)
+        self.gelu1 = nn.GELU()
+        self.fc1 = nn.Linear(projection_dim, projection_dim)
+        self.gelu2 = nn.GELU()
+        self.fc2 = nn.Linear(projection_dim, projection_dim)
         self.dropout = nn.Dropout(dropout)
         self.layer_norm = nn.LayerNorm(projection_dim)
 
