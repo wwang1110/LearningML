@@ -11,8 +11,6 @@ clip_processor = CLIPProcessor.from_pretrained(config.clip_model_name)
 train_dataset = ScreenDataset(dataset_path='D:/Adams/dataset/CUBTest_train', clip_processor=clip_processor, roberta_tokenizer=roberta_tokenizer)
 val_dataset = ScreenDataset(dataset_path='D:/Adams/dataset/CUBTest_val', clip_processor=clip_processor, roberta_tokenizer=roberta_tokenizer)
 
-train_dataset[10]
-
 model = ScreenModel(config)
 
 training_args = TrainingArguments(
