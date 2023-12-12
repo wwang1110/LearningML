@@ -1,6 +1,33 @@
-import torch
+from transformers import PretrainedConfig
 
-class screen_configuration(object):
+clip_models = [
+    #projection_dim = 512
+    "openai/clip-vit-base-patch32", 
+    #projection_dim = 768
+    "openai/clip-vit-large-patch14"
+    ]
+xlm_roberta_models = [
+    "xlm-roberta-base", 
+    "xlm-roberta-large"
+    ]
+
+class ScreenConfiguration(PretrainedConfig):
+    temperature = 1.0
+
+    clip_model_name = "openai/clip-vit-base-patch32"
+    clip_trainable = False
+    clip_vit_dim = 768
+    clip_txt_dim = 512
+
+    roberta_model_name = "xlm-roberta-base"
+    roberta_trainable = False
+    roberta_txt_dim = 768
+
+    projection_dim = 256
+
+    dropout = 0.1
+    
+    '''
     debug = False
     #image_path = "C:/Moein/AI/Datasets/Flicker-8k/Images"
     #captions_path = "C:/Moein/AI/Datasets/Flicker-8k"
@@ -40,3 +67,4 @@ class screen_configuration(object):
     num_projection_layers = 1
     projection_dim = 256 
     dropout = 0.1
+    '''
