@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import os
 from PIL import Image
 import albumentations as A
@@ -7,6 +8,7 @@ import numpy as np
 def get_transforms(img_size):
     return A.Compose(
         [
+            A.ToRGB(),
             A.Resize(img_size, img_size, always_apply=True),
             A.Normalize(max_pixel_value=255.0, always_apply=True),
         ]
@@ -14,7 +16,9 @@ def get_transforms(img_size):
 
 class ScreenDataset(torch.utils.data.Dataset):
     def __init__(self, dataset_path, clip_processor, roberta_tokenizer):
-        
+        self.max_token_length = 77
+        self.eos_token_id = 49407
+
         self.action_ids = []
         self.labels = []
         self.image_files = []
@@ -39,9 +43,10 @@ class ScreenDataset(torch.utils.data.Dataset):
         pil_image = Image.open(self.image_files[idx], 'r')
         image = self.transforms(image=np.array(pil_image))['image']
         image = torch.tensor(image).permute(2, 0, 1).float()
-        inputs = self.clip_processor(text=[self.labels[idx]], images=image, return_tensors="pt", padding=True)
-        item['input_ids'] = inputs['input_ids'][0]
-        item['attention_mask'] = inputs['attention_mask'][0]
+        inputs = self.clip_processor(text=[self.labels[idx]], images=image, return_tensors="pt", padding=True, truncation=True, max_length=77)
+        #padding to max_token_length
+        item['input_ids'] = torch.cat((inputs['input_ids'][0],torch.full((self.max_token_length-len(inputs['input_ids'][0]),), self.eos_token_id)), dim=0)
+        item['attention_mask'] = torch.cat((inputs['attention_mask'][0],torch.zeros((self.max_token_length-len(inputs['attention_mask'][0]),))), dim=0)
         item['pixel_values'] = inputs['pixel_values'][0]
 
         with open(self.metadata_files[idx], 'r') as f:
@@ -50,7 +55,7 @@ class ScreenDataset(torch.utils.data.Dataset):
         item['encoded_metadata'] = encoded_metadata['input_ids'][0]
         item['metadata_attention_mask'] = encoded_metadata['attention_mask'][0]
     
-        item['labels'] = inputs['input_ids'][0]
+        item['labels'] = item['input_ids']
         return item
 
     def __len__(self):
