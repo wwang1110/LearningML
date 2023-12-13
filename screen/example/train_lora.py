@@ -1,4 +1,4 @@
-from peft import LoraConfig, prepare_model_for_kbit_training, get_peft_model, PeftModel
+from peft import LoraConfig, prepare_model_for_kbit_training, get_peft_model
 from transformers import Trainer, TrainingArguments
 
 from example.mlp import MLP

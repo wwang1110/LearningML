@@ -21,16 +21,16 @@ train_subset, val_subset = random_split(dataset, [train_size, valid_size])
 model = ScreenModel(config)
 
 training_args = TrainingArguments(
-        output_dir='./checkpoint',
-        num_train_epochs=10,
-        per_device_train_batch_size=32,
-        per_device_eval_batch_size=32,
-        report_to='none',
-        save_strategy='no',
-        fp16=True,
-        optim="adamw_torch",
+        output_dir = config.output_dir,
+        num_train_epochs = config.num_train_epochs,
+        per_device_train_batch_size = config.batch_size,
+        per_device_eval_batch_size = config.batch_size,
+        evaluation_strategy = config.evaluation_strategy,
+        optim = config.optim,
+        report_to = 'none',
+        save_strategy = 'no',
+        fp16 = True,
         remove_unused_columns=False,
-        evaluation_strategy="epoch",
     )
 
 trainer = Trainer(

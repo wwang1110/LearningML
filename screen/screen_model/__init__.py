@@ -15,7 +15,6 @@ class ScreenModel(PreTrainedModel):
 
     def __init__(self, config):
         super().__init__(config)
-        self.temperature = config.temperature
 
         self.clip_model = CLIPModel.from_pretrained(config.clip_model_name)
         for p in self.clip_model.parameters():
@@ -67,30 +66,30 @@ class ScreenModel(PreTrainedModel):
 
     def forward(self, input_ids, attention_mask, pixel_values, encoded_metadata, metadata_attention_mask, labels=None):
         # Getting Image and Text Features
-        image_embeddings = self.get_image_features(pixel_values, encoded_metadata, metadata_attention_mask)
-        text_embeddings = self.get_text_features(input_ids, attention_mask)
+        image_embeds = self.get_image_features(pixel_values, encoded_metadata, metadata_attention_mask)
+        text_embeds = self.get_text_features(input_ids, attention_mask)
 
-        logits = (text_embeddings @ image_embeddings.T) / self.temperature
-        pred = torch.argmax(logits, dim=1).tolist()
+        # normalized features
+        image_embeds = image_embeds / image_embeds.norm(p=2, dim=-1, keepdim=True)
+        text_embeds = text_embeds / text_embeds.norm(p=2, dim=-1, keepdim=True)
+
+        # cosine similarity as logits
+        logit_scale = self.clip_model.logit_scale.exp()
+        logits_per_text = torch.matmul(text_embeds, image_embeds.t()) * logit_scale
+        logits_per_image = logits_per_text.t()
+        probs = logits_per_image.softmax(dim=1)
 
         if labels is None:
-            return {'logits': logits, 'pred': pred}
+            return {'logits_per_image': logits_per_image, 'logits_per_text': logits_per_text, 'probs': probs}
         else:
             # Calculating the Loss
-            images_similarity = image_embeddings @ image_embeddings.T
-            texts_similarity = text_embeddings @ text_embeddings.T
-            targets = F.softmax(
-                (images_similarity + texts_similarity) / 2 * self.temperature, dim=-1
-            )
-            texts_loss = cross_entropy(logits, targets, reduction='none')
-            images_loss = cross_entropy(logits.T, targets.T, reduction='none')
-            loss =  (images_loss + texts_loss) / 2.0 # shape: (batch_size)
-            return {'loss': loss.mean(), 'logits': logits, 'pred': pred}
+            loss = clip_loss(logits_per_text)
+            return {'loss': loss, 'logits_per_image': logits_per_image, 'logits_per_text': logits_per_text, 'probs': probs}
 
-def cross_entropy(preds, targets, reduction='none'):
-    log_softmax = nn.LogSoftmax(dim=-1)
-    loss = (-targets * log_softmax(preds)).sum(1)
-    if reduction == "none":
-        return loss
-    elif reduction == "mean":
-        return loss.mean()
+def contrastive_loss(logits: torch.Tensor) -> torch.Tensor:
+    return nn.functional.cross_entropy(logits, torch.arange(len(logits), device=logits.device))
+
+def clip_loss(similarity: torch.Tensor) -> torch.Tensor:
+    caption_loss = contrastive_loss(similarity)
+    image_loss = contrastive_loss(similarity.t())
+    return (caption_loss + image_loss) / 2.0
