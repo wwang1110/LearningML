@@ -1,4 +1,4 @@
-from screen_dataset import ScreenDataset
+from screen_dataset.lmdb_dataset import LMDBDataset
 from screen_model import ScreenModel, ScreenConfiguration
 from transformers import AutoTokenizer
 from transformers import CLIPProcessor
@@ -9,10 +9,9 @@ config = ScreenConfiguration()
 
 roberta_tokenizer = AutoTokenizer.from_pretrained(config.roberta_model_name)
 clip_processor = CLIPProcessor.from_pretrained(config.clip_model_name)
-#train_dataset = ScreenDataset(dataset_path='D:/Adams/dataset/CUBTest_train', clip_processor=clip_processor, roberta_tokenizer=roberta_tokenizer)
-#val_dataset = ScreenDataset(dataset_path='D:/Adams/dataset/CUBTest_val', clip_processor=clip_processor, roberta_tokenizer=roberta_tokenizer)
 
-dataset = ScreenDataset(dataset_path='D:/Adams/dataset/CUB_200_2011_CAP', clip_processor=clip_processor, roberta_tokenizer=roberta_tokenizer)
+#dataset = FileDataset(dataset_path='D:/Adams/dataset/CUB_200_2011_CAP', clip_processor=clip_processor, roberta_tokenizer=roberta_tokenizer)
+dataset = LMDBDataset(lmdb_path='D:/Adams/lmdb', clip_processor=clip_processor, roberta_tokenizer=roberta_tokenizer)
 
 train_size = int(0.8* len(dataset))
 valid_size = len(dataset) - train_size

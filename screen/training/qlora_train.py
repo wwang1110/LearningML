@@ -1,3 +1,5 @@
+import torch
+from transformers import BitsAndBytesConfig
 from peft import LoraConfig, prepare_model_for_kbit_training, get_peft_model
 from transformers import Trainer, TrainingArguments
 from torch.utils.data import random_split
@@ -9,7 +11,7 @@ from screen_dataset.lmdb_dataset import LMDBDataset
 #from screen_dataset.file_dataset import FileDataset
 from training.helper import print_trainable_parameters
 
-def train_lora(adapter_name, base_model_path, dataset, config):
+def train_qlora(adapter_name, base_model_path, dataset, config):
     trainable_layers=[
             "fc1", 
             "fc2", 
@@ -25,6 +27,14 @@ def train_lora(adapter_name, base_model_path, dataset, config):
             "value",
             "dense",
         ]
+
+    nf4_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_compute_dtype=torch.bfloat16
+    )
+
     lora_config = LoraConfig(
         r=16,
         lora_alpha=16,
@@ -34,7 +44,7 @@ def train_lora(adapter_name, base_model_path, dataset, config):
         modules_to_save=["classifier"],
     )
 
-    base_model = ScreenModel.from_pretrained(base_model_path)
+    base_model = ScreenModel.from_pretrained(base_model_path, quantization_config=nf4_config)
     base_model = prepare_model_for_kbit_training(base_model)
 
     model = get_peft_model(base_model, lora_config)
@@ -74,6 +84,6 @@ if __name__ == "__main__":
     screen_config = ScreenConfiguration()
     roberta_tokenizer = AutoTokenizer.from_pretrained(screen_config.roberta_model_name)
     clip_processor = CLIPProcessor.from_pretrained(screen_config.clip_model_name)
-    dataset = dataset = LMDBDataset(lmdb_path='D:/Adams/lmdb', clip_processor=clip_processor, roberta_tokenizer=roberta_tokenizer)
-    train_lora("lora1", "./base", dataset, screen_config)
-    train_lora("lora2", "./base", dataset, screen_config)
+    dataset = LMDBDataset(lmdb_path='D:/Adams/lmdb', clip_processor=clip_processor, roberta_tokenizer=roberta_tokenizer)
+    train_qlora("lora1", "./base", dataset, screen_config)
+    train_qlora("lora2", "./base", dataset, screen_config)
