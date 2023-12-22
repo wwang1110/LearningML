@@ -25,9 +25,21 @@ training_args = TrainingArguments(
         per_device_train_batch_size = config.batch_size,
         per_device_eval_batch_size = config.batch_size,
         evaluation_strategy = config.evaluation_strategy,
+        eval_steps = config.eval_steps,
+
+        logging_strategy = config.logging_strategy,
+        logging_dir = config.logging_dir,
+        logging_steps = config.logging_steps,
+        report_to = config.report_to,
+
+        save_strategy = config.save_strategy,
+        save_steps = config.save_steps,
+        save_total_limit = config.save_total_limit,
+
         optim = config.optim,
-        report_to = 'none',
-        save_strategy = 'no',
+        learning_rate = config.learning_rate,
+        #dataloader_num_workers = config.dataloader_num_workers,
+        gradient_accumulation_steps = config.gradient_accumulation_steps,
         fp16 = True,
         remove_unused_columns=False,
     )
@@ -40,6 +52,8 @@ trainer = Trainer(
     )
 
 trainer.train()
+#resume checkpoint
+#trainer.train("checkpoint-9500")
 
 results = trainer.evaluate()
 print(results)

@@ -28,10 +28,26 @@ class ScreenConfiguration(PretrainedConfig):
         
     #train args
     optim = "adamw_torch"
-    num_train_epochs = 1
+    num_train_epochs = 10
     batch_size = 32
+
+    save_strategy = "steps"
     output_dir = './checkpoint'
-    evaluation_strategy = "epoch"
+    save_steps = 10
+    save_total_limit = 5
+    
+    evaluation_strategy = "steps"
+    eval_steps = 5
+
+    logging_strategy = "steps"
+    logging_dir = './logs'
+    logging_steps = 5
+    #report_to = 'azure_ml'
+    report_to = 'tensorboard'
+
+    learning_rate = 1e-4 # 1e-5
+    dataloader_num_workers = 4
+    gradient_accumulation_steps = 1
     
     #train lora args
     finetune_optim = "adamw_torch"
