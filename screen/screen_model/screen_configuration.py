@@ -13,7 +13,7 @@ xlm_roberta_models = [
 
 class ScreenConfiguration(PretrainedConfig):
     lmdb_path = 'D:/Adams/lmdb'
-    output_dir = './output'
+    output_dir = './base'
 
     clip_model_name = "openai/clip-vit-base-patch32"
     clip_trainable = False
