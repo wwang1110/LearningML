@@ -12,6 +12,8 @@ xlm_roberta_models = [
     ]
 
 class ScreenConfiguration(PretrainedConfig):
+    lmdb_path = 'D:/Adams/lmdb'
+    output_dir = './output'
 
     clip_model_name = "openai/clip-vit-base-patch32"
     clip_trainable = False
@@ -30,15 +32,12 @@ class ScreenConfiguration(PretrainedConfig):
     optim = "adamw_torch"
     num_train_epochs = 10
     batch_size = 32
-
     save_strategy = "steps"
-    output_dir = './checkpoint'
-    save_steps = 10
+    checkpoint_dir = './checkpoint'
+    save_steps = 100
     save_total_limit = 5
-    
     evaluation_strategy = "steps"
     eval_steps = 5
-
     logging_strategy = "steps"
     logging_dir = './logs'
     logging_steps = 5

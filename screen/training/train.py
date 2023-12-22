@@ -10,8 +10,7 @@ config = ScreenConfiguration()
 roberta_tokenizer = AutoTokenizer.from_pretrained(config.roberta_model_name)
 clip_processor = CLIPProcessor.from_pretrained(config.clip_model_name)
 
-#dataset = FileDataset(dataset_path='D:/Adams/dataset/CUB_200_2011_CAP', clip_processor=clip_processor, roberta_tokenizer=roberta_tokenizer)
-dataset = LMDBDataset(lmdb_path='D:/Adams/lmdb', clip_processor=clip_processor, roberta_tokenizer=roberta_tokenizer)
+dataset = LMDBDataset(lmdb_path=config.lmdb_path, clip_processor=clip_processor, roberta_tokenizer=roberta_tokenizer)
 
 train_size = int(0.8* len(dataset))
 valid_size = len(dataset) - train_size
@@ -20,22 +19,19 @@ train_subset, val_subset = random_split(dataset, [train_size, valid_size])
 model = ScreenModel(config)
 
 training_args = TrainingArguments(
-        output_dir = config.output_dir,
+        output_dir = config.checkpoint_dir,
         num_train_epochs = config.num_train_epochs,
         per_device_train_batch_size = config.batch_size,
         per_device_eval_batch_size = config.batch_size,
         evaluation_strategy = config.evaluation_strategy,
         eval_steps = config.eval_steps,
-
         logging_strategy = config.logging_strategy,
         logging_dir = config.logging_dir,
         logging_steps = config.logging_steps,
         report_to = config.report_to,
-
         save_strategy = config.save_strategy,
         save_steps = config.save_steps,
         save_total_limit = config.save_total_limit,
-
         optim = config.optim,
         learning_rate = config.learning_rate,
         #dataloader_num_workers = config.dataloader_num_workers,
@@ -52,10 +48,11 @@ trainer = Trainer(
     )
 
 trainer.train()
-#resume checkpoint
-#trainer.train("checkpoint-9500")
 
 results = trainer.evaluate()
 print(results)
 
-model.save_pretrained("./base")
+model.save_pretrained(config.output_dir)
+
+#resume checkpoint
+#trainer.train("checkpoint-9500")
