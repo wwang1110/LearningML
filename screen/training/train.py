@@ -4,7 +4,7 @@ from transformers import AutoTokenizer
 from transformers import CLIPProcessor
 from transformers import Trainer, TrainingArguments
 from torch.utils.data import random_split
-from helper import compute_metrics
+from helper import compute_metrics, compute_metrics_adjusted
 
 config = ScreenConfiguration()
 
@@ -46,7 +46,7 @@ trainer = Trainer(
         args=training_args,
         train_dataset=train_subset,
         eval_dataset=val_subset,
-        compute_metrics=compute_metrics,
+        compute_metrics=compute_metrics_adjusted,
     )
 
 #predictions = trainer.predict(val_subset)

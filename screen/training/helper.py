@@ -3,7 +3,6 @@ from PIL import Image
 import albumentations as A
 import numpy as np
 import torch
-from disjoint_set import DisjointSet
 from sklearn.metrics import f1_score, accuracy_score
 
 def print_trainable_parameters(model):
@@ -48,24 +47,25 @@ def build_inputs(image_file, text_file, labels, transforms, clip_processor, robe
 
     return item   
 
-def compute_metrics_ex(predictions):
-    (_, batch_size) = torch.from_numpy(predictions.predictions[2]).shape
-    probs = torch.argmax(torch.from_numpy(predictions.predictions[2]), dim=1)
-
-    ds = DisjointSet()
-    for i in range(len(predictions.label_ids)):
-        ds.find(i)
-        key = ','.join([str(x.item()) for x in predictions.label_ids[i]])
-        if key not in ds:
-            ds.find(key)
-        ds.union(key, i)
+def floatEquals(fa, fb):
+    return abs(fa - fb) < 1e-9
+        
+def compute_metrics_adjusted(predictions):
+    probs = torch.from_numpy(predictions.predictions[2])
+    (_, batch_size) = probs.shape
+    max_vals = [x.item() for x in torch.amax(probs, dim=1)]
+    preds = [x.item() for x in torch.argmax(probs, dim=1)]
 
     y_pred = []
     y_true = []
     for i in range(len(probs)):
-        y_true.append(ds.find(i))
-        pred_idx = int((i / batch_size) * batch_size + probs[i].item())
-        y_pred.append(ds.find(pred_idx))
+        y_true.append(i % batch_size)
+        max_val = max_vals[i]
+        y_val = probs[i][y_true[i]].item()
+        if floatEquals(max_val, y_val):
+            y_pred.append(y_true[i])
+        else:
+            y_pred.append(preds[i])
 
     return {'accuray': accuracy_score(y_true, y_pred), 'f1': f1_score(y_true, y_pred, average='macro')}
 
