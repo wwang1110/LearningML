@@ -3,6 +3,8 @@ from PIL import Image
 import albumentations as A
 import numpy as np
 import torch
+from disjoint_set import DisjointSet
+from sklearn.metrics import f1_score, accuracy_score
 
 def print_trainable_parameters(model):
     """
@@ -45,3 +47,35 @@ def build_inputs(image_file, text_file, labels, transforms, clip_processor, robe
     item['metadata_attention_mask'] = encoded_metadata['attention_mask']
 
     return item   
+
+def compute_metrics_ex(predictions):
+    (_, batch_size) = torch.from_numpy(predictions.predictions[2]).shape
+    probs = torch.argmax(torch.from_numpy(predictions.predictions[2]), dim=1)
+
+    ds = DisjointSet()
+    for i in range(len(predictions.label_ids)):
+        ds.find(i)
+        key = ','.join([str(x.item()) for x in predictions.label_ids[i]])
+        if key not in ds:
+            ds.find(key)
+        ds.union(key, i)
+
+    y_pred = []
+    y_true = []
+    for i in range(len(probs)):
+        y_true.append(ds.find(i))
+        pred_idx = int((i / batch_size) * batch_size + probs[i].item())
+        y_pred.append(ds.find(pred_idx))
+
+    return {'accuray': accuracy_score(y_true, y_pred), 'f1': f1_score(y_true, y_pred, average='macro')}
+
+def compute_metrics(predictions):
+    probs = torch.from_numpy(predictions.predictions[2])
+    (_, batch_size) = probs.shape
+
+    y_pred = [x.item() for x in torch.argmax(probs, dim=1)]
+    y_true = []
+    for i in range(len(y_pred)):
+        y_true.append(i % batch_size)
+
+    return {'accuray': accuracy_score(y_true, y_pred), 'f1': f1_score(y_true, y_pred, average='macro')}

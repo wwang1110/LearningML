@@ -30,17 +30,17 @@ class ScreenConfiguration(PretrainedConfig):
         
     #train args
     optim = "adamw_torch"
-    num_train_epochs = 10
+    num_train_epochs = 1
     batch_size = 32
     save_strategy = "steps"
     checkpoint_dir = './checkpoint'
     save_steps = 100
     save_total_limit = 5
     evaluation_strategy = "steps"
-    eval_steps = 5
+    eval_steps = 50
     logging_strategy = "steps"
     logging_dir = './logs'
-    logging_steps = 5
+    logging_steps = 50
     #report_to = 'azure_ml'
     report_to = 'tensorboard'
 

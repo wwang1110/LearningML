@@ -1,6 +1,5 @@
 import torch
-from torch import nn
-import torch.nn.functional as F
+from torch import FloatTensor, nn
 
 from transformers import PreTrainedModel
 from screen_model.screen_configuration import ScreenConfiguration
@@ -76,6 +75,7 @@ class ScreenModel(PreTrainedModel):
         # cosine similarity as logits
         logit_scale = self.clip_model.logit_scale.exp()
         logits_per_text = torch.matmul(text_embeds, image_embeds.t()) * logit_scale
+        #logits_per_text = self.adjust_logits(input_ids, logits_per_text)
         logits_per_image = logits_per_text.t()
         probs = logits_per_image.softmax(dim=1)
 
@@ -85,6 +85,20 @@ class ScreenModel(PreTrainedModel):
             # Calculating the Loss
             loss = clip_loss(logits_per_text)
             return {'loss': loss, 'logits_per_image': logits_per_image, 'logits_per_text': logits_per_text, 'probs': probs}
+
+    def adjust_logits(self, input_ids, logits_per_text) -> FloatTensor:
+        input_map={}
+        for i in range(len(input_ids)):
+            key = ','.join([str(x.item()) for x in input_ids[i]])
+            input_map.setdefault(key, [])
+            input_map[key].append(i)
+
+        for v in input_map.values():
+            for i in v:
+                for j in v:
+                    if i != j:
+                        logits_per_text[j][i] = 0.0
+        return logits_per_text
 
 def contrastive_loss(logits: torch.Tensor) -> torch.Tensor:
     return nn.functional.cross_entropy(logits, torch.arange(len(logits), device=logits.device))
