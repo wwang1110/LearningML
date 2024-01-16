@@ -8,14 +8,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 import torch
 import albumentations as A
-import numpy as np
-
-def get_transforms():
-    return A.Compose(
-        [
-            A.Normalize(max_pixel_value=255.0, always_apply=True),
-        ]
-    )
+from transformers import DataCollatorWithPadding
 
 class LMDBDataset(Dataset):
     def __init__(self, lmdb_path, clip_processor, roberta_tokenizer):
@@ -50,7 +43,6 @@ class LMDBDataset(Dataset):
         self.max_token_length = 77
         self.eos_token_id = 49407
                 
-        self.transforms = get_transforms()
         self.clip_processor = clip_processor
         self.roberta_tokenizer = roberta_tokenizer
 
@@ -77,21 +69,35 @@ class LMDBDataset(Dataset):
         image_b64 = image_b64.decode(encoding="utf8", errors="ignore")
         pil_image = Image.open(BytesIO(base64.urlsafe_b64decode(image_b64))) # already resized
 
-
-        image = self.transforms(image=np.array(pil_image))['image']
-        image = torch.tensor(image).permute(2, 0, 1).float()
-
-        inputs = self.clip_processor(text=[raw_text], images=image, return_tensors="pt", padding=True, truncation=True, max_length=self.max_token_length)
-        #padding to max_token_length
-        item['input_ids'] = torch.cat((inputs['input_ids'][0],torch.full((self.max_token_length-len(inputs['input_ids'][0]),), self.eos_token_id)), dim=0)
-        item['attention_mask'] = torch.cat((inputs['attention_mask'][0],torch.zeros((self.max_token_length-len(inputs['attention_mask'][0]),))), dim=0)
-        item['pixel_values'] = inputs['pixel_values'][0]
-
+        encoded_clip_inputs = self.clip_processor(text=[raw_text], images=pil_image, return_tensors="pt", truncation=True)
         metadata = self.txn_metas.get("{}".format(image_id).encode('utf-8')).tobytes().decode('utf-8')
+        encoded_metadata = self.roberta_tokenizer(metadata, return_tensors="pt", truncation=True)
 
-        encoded_metadata = self.roberta_tokenizer(metadata, padding='max_length', truncation=True, max_length=512, return_tensors="pt")
-        item['encoded_metadata'] = encoded_metadata['input_ids'][0]
+        item['metadata_input_ids'] = encoded_metadata['input_ids'][0]
         item['metadata_attention_mask'] = encoded_metadata['attention_mask'][0]
-    
-        item['labels'] = item['input_ids']
+
+        item['clip_pixel_values'] = encoded_clip_inputs['pixel_values'][0]
+        item['clip_input_ids'] = encoded_clip_inputs['input_ids'][0]
+        item['clip_attention_mask'] = encoded_clip_inputs['attention_mask'][0]
+
         return item
+    
+def lmdb_collate_function(examples, clip_tokenizer, roberta_tokenizer):
+    pixel_values = torch.stack([example["clip_pixel_values"] for example in examples])
+    
+    metadata_collator = DataCollatorWithPadding(tokenizer=roberta_tokenizer)
+    metadata_inputs = [{"input_ids": example["metadata_input_ids"], "attention_mask": example["metadata_attention_mask"]} for example in examples]
+    metadata_data = metadata_collator(metadata_inputs)
+    
+    clip_collator = DataCollatorWithPadding(tokenizer=roberta_tokenizer)
+    clip_inputs = [{"input_ids": example["clip_input_ids"], "attention_mask": example["clip_attention_mask"]} for example in examples]
+    clip_data = clip_collator(clip_inputs)
+    #input_ids = torch.stack([example["input_ids"] for example in examples])
+    #labels = torch.stack([example["input_ids"] for example in examples])
+    return {
+        "metadata_input_ids": metadata_data['input_ids'],
+        "metadata_attention_mask": metadata_data['attention_mask'],
+        "clip_pixel_values": pixel_values,
+        "clip_input_ids": clip_data['input_ids'],
+        "clip_attention_mask": clip_data['attention_mask'],
+        }

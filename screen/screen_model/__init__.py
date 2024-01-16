@@ -27,10 +27,10 @@ class ScreenModel(PreTrainedModel):
         self.clip_vision_projection = nn.Linear(config.clip_vit_dim, config.projection_dim, bias=False)
         self.mlp = MLPHeader(embedding_dim=config.projection_dim * 2, projection_dim=config.projection_dim, dropout=config.dropout)
 
-    def get_text_features(self, input_ids, attention_mask):
+    def get_text_features(self, clip_input_ids, clip_attention_mask):
         text_outputs = self.clip_model.text_model(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
+            input_ids=clip_input_ids,
+            attention_mask=clip_attention_mask,
             position_ids=None,
             output_attentions=None,
             output_hidden_states=None,
@@ -39,10 +39,10 @@ class ScreenModel(PreTrainedModel):
         text_embeds = text_outputs[1]
         return self.clip_text_projection(text_embeds)
 
-    def get_image_features(self, pixel_values, encoded_metadata, metadata_attention_mask):
+    def get_image_features(self, clip_pixel_values, metadata_input_ids, metadata_attention_mask):
         #extract image embeds
         vision_outputs = self.clip_model.vision_model(
-            pixel_values=pixel_values,
+            pixel_values=clip_pixel_values,
             output_attentions=None,
             output_hidden_states=None,
             return_dict=None,
@@ -52,7 +52,7 @@ class ScreenModel(PreTrainedModel):
         image_embeds = image_feature / image_feature.norm(p=2, dim=-1, keepdim=True)
 
         #extract metadata embeds
-        metadata_output = self.metadata_encoder(input_ids=encoded_metadata, attention_mask=metadata_attention_mask)
+        metadata_output = self.metadata_encoder(input_ids=metadata_input_ids, attention_mask=metadata_attention_mask)
         metadata_feature = metadata_output[1]
         metadata_feature = self.metadata_projection(metadata_feature)
         metadata_embeds = metadata_feature / metadata_feature.norm(p=2, dim=-1, keepdim=True)
@@ -63,10 +63,10 @@ class ScreenModel(PreTrainedModel):
         #mlp layer
         return self.mlp(embeds)
 
-    def forward(self, input_ids, attention_mask, pixel_values, encoded_metadata, metadata_attention_mask, labels=None):
+    def forward(self, metadata_input_ids, metadata_attention_mask, clip_pixel_values, clip_input_ids, clip_attention_mask):
         # Getting Image and Text Features
-        image_embeds = self.get_image_features(pixel_values, encoded_metadata, metadata_attention_mask)
-        text_embeds = self.get_text_features(input_ids, attention_mask)
+        image_embeds = self.get_image_features(clip_pixel_values, metadata_input_ids, metadata_attention_mask)
+        text_embeds = self.get_text_features(clip_input_ids, clip_attention_mask)
 
         # normalized features
         image_embeds = image_embeds / image_embeds.norm(p=2, dim=-1, keepdim=True)
@@ -79,12 +79,9 @@ class ScreenModel(PreTrainedModel):
         logits_per_image = logits_per_text.t()
         probs = logits_per_image.softmax(dim=1)
 
-        if labels is None:
-            return {'logits_per_image': logits_per_image, 'logits_per_text': logits_per_text, 'probs': probs}
-        else:
-            # Calculating the Loss
-            loss = clip_loss(logits_per_text)
-            return {'loss': loss, 'logits_per_image': logits_per_image, 'logits_per_text': logits_per_text, 'probs': probs}
+        # Calculating the Loss
+        loss = clip_loss(logits_per_text)
+        return {'loss': loss, 'logits_per_image': logits_per_image, 'logits_per_text': logits_per_text, 'probs': probs}
 
     def adjust_logits(self, input_ids, logits_per_text) -> FloatTensor:
         input_map={}

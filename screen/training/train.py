@@ -1,7 +1,7 @@
-from screen_dataset.lmdb_dataset import LMDBDataset
+from screen_dataset.lmdb_dataset import LMDBDataset, lmdb_collate_function
 from screen_model import ScreenModel, ScreenConfiguration
 from transformers import AutoTokenizer
-from transformers import CLIPProcessor
+from transformers import CLIPProcessor, CLIPTokenizer
 from transformers import Trainer, TrainingArguments
 from torch.utils.data import random_split
 from helper import compute_metrics, compute_metrics_adjusted
@@ -10,6 +10,7 @@ config = ScreenConfiguration()
 
 roberta_tokenizer = AutoTokenizer.from_pretrained(config.roberta_model_name)
 clip_processor = CLIPProcessor.from_pretrained(config.clip_model_name)
+clip_tokenizer = CLIPTokenizer.from_pretrained(config.clip_model_name)
 
 dataset = LMDBDataset(lmdb_path=config.lmdb_path, clip_processor=clip_processor, roberta_tokenizer=roberta_tokenizer)
 
@@ -46,10 +47,12 @@ trainer = Trainer(
         args=training_args,
         train_dataset=train_subset,
         eval_dataset=val_subset,
+        data_collator= lambda example: lmdb_collate_function(examples=example, clip_tokenizer=clip_tokenizer, roberta_tokenizer=roberta_tokenizer),
         compute_metrics=compute_metrics_adjusted,
     )
 
 #predictions = trainer.predict(val_subset)
+#compute_metrics_adjusted(predictions)
 
 trainer.train()
 
