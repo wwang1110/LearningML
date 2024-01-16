@@ -38,11 +38,7 @@ class LMDBDataset(Dataset):
 
         super(LMDBDataset, self).__init__()
 
-        # the self.dataset_len will be edited to a larger value by calling pad_dataset()
         self.dataset_len = self.number_samples
-        self.max_token_length = 77
-        self.eos_token_id = 49407
-                
         self.clip_processor = clip_processor
         self.roberta_tokenizer = roberta_tokenizer
 
@@ -62,6 +58,7 @@ class LMDBDataset(Dataset):
 
         sample_index = index % self.number_samples
 
+        #image_id, text_id, raw_text
         pair = pickle.loads(self.txn_pairs.get("{}".format(sample_index).encode('utf-8')).tobytes())
         image_id, text_id, raw_text = pair
 
@@ -89,7 +86,7 @@ def lmdb_collate_function(examples, clip_tokenizer, roberta_tokenizer):
     metadata_inputs = [{"input_ids": example["metadata_input_ids"], "attention_mask": example["metadata_attention_mask"]} for example in examples]
     metadata_data = metadata_collator(metadata_inputs)
     
-    clip_collator = DataCollatorWithPadding(tokenizer=roberta_tokenizer)
+    clip_collator = DataCollatorWithPadding(tokenizer=clip_tokenizer)
     clip_inputs = [{"input_ids": example["clip_input_ids"], "attention_mask": example["clip_attention_mask"]} for example in examples]
     clip_data = clip_collator(clip_inputs)
     #input_ids = torch.stack([example["input_ids"] for example in examples])
