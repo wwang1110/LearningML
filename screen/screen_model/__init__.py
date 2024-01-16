@@ -75,7 +75,7 @@ class ScreenModel(PreTrainedModel):
         # cosine similarity as logits
         logit_scale = self.clip_model.logit_scale.exp()
         logits_per_text = torch.matmul(text_embeds, image_embeds.t()) * logit_scale
-        #logits_per_text = self.adjust_logits(input_ids, logits_per_text)
+        #logits_per_text = self.adjust_logits(clip_input_ids, logits_per_text)
         logits_per_image = logits_per_text.t()
         probs = logits_per_image.softmax(dim=1)
 
